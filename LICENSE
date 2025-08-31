@@ -1,0 +1,30 @@
+MIT License
+
+Copyright (c) 2024 抖音RTMP推流地址获取工具 - Go版本
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## 免责声明
+
+1. 本软件仅用于个人学习和研究使用，无需提供任何代价，并不可用于任何商业用途及目的；
+2. 工具仅捕获公开传输的网络数据包，未采用破解加密、伪装身份等技术手段；
+3. 使用者需遵守抖音平台规定，若抖音平台禁止使用第三方工具，请立即停止工具的使用并删除工具；
+4. 若本工具有造成任何可能的侵权行为，请进行联系，将会立即停止可能的侵权行为，并关闭代码仓库；
+5. 本工具将根据抖音平台协议进行技术调整，确保合法合规；
+6. 开发者不承担因使用本工具而产生的任何责任。

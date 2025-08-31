@@ -1,0 +1,81 @@
+# 依赖文件
+go.sum
+
+# 构建输出
+/build/
+/dist/
+douyin-rtmp
+douyin-rtmp.exe
+
+# 配置文件（保留模板）
+*.local.yaml
+*.local.yml
+config.yaml
+!configs/config.yaml
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试覆盖率
+coverage.out
+coverage.html
+
+# 依赖图
+deps.png
+
+# 调试文件
+debug
+debug.test
+
+# 运行时生成的文件
+*.pid
+*.sock
+
+# Docker相关
+.docker/
+
+# 系统文件
+.env
+.env.local
+.env.*.local
+
+# 备份文件
+*.bak
+*.backup
+
+# 压缩文件
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# 证书文件
+*.pem
+*.key
+*.crt
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 缓存目录
+cache/
+tmp/
+
+# 文档生成
+docs/build/

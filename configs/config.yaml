@@ -1,0 +1,25 @@
+app:
+  version: "1.0.0"
+  check_update: true
+  auto_save_config: true
+
+network:
+  default_interface: ""
+  monitor_all_interfaces: false
+  capture_timeout: 30
+  max_concurrent_captures: 5
+
+ui:
+  window_width: 900
+  window_height: 650
+  window_x: -1  # -1 表示居中
+  window_y: -1  # -1 表示居中
+  theme: "auto"  # "light", "dark", "auto"
+  show_packet_logs: true
+  log_max_lines: 1000
+
+log:
+  level: "info"  # "debug", "info", "warn", "error"
+  max_entries: 1000
+  save_to_file: false
+  file_path: "logs/app.log"
