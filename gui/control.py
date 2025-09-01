@@ -319,7 +319,7 @@ class ControlPanel:
         self.save_listening_config()
 
         # 根据监听所有接口的状态设置接口选择和刷新按钮的状态
-        if self.listening_all.get():
+        if not self.listening_all.get():
             self.interface_combo.configure(state="disabled")
             self.refresh_btn.configure(state="disabled")
         else:

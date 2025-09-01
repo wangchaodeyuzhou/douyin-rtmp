@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
-import webbrowser
 import sys
 from scapy.arch.windows import get_windows_if_list
 from core.npcap import NpcapManager
@@ -12,24 +11,21 @@ from gui.widgets import (
     create_disclaimer_dialog,
     create_about_dialog,
 )
-from utils.config import VERSION, GITHUB_CONFIG
+from utils.config import VERSION
 import threading
 from utils.version import check_for_updates
-from gui.ads import AdPanel
 from gui.obs import OBSPanel
 from gui.control import ControlPanel
+from gui.stream_panel import StreamPanel
 from utils.resource import resource_path
 from utils.config import get_config, set_config
-from gui.contribute import ContributeDialog
-import json
-import requests
 
 
 class StreamCaptureGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"抖音直播推流地址获取工具 {VERSION}")
-        self.root.geometry("800x600")
+        self.root.title(f"推流工具 {VERSION}")
+        self.root.geometry("1000x600")
 
         # 使窗口居中显示
         self.center_window()
@@ -46,7 +42,7 @@ class StreamCaptureGUI:
 
         # 创建主框架
         self.main_frame = ttk.Frame(self.root, padding="10")
-        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.main_frame.grid(row=0, column=0, sticky="news")
 
         # 基本UI设置
         self.setup_basic_ui()
@@ -92,23 +88,6 @@ class StreamCaptureGUI:
         tools_menu.add_command(label="安装 Npcap", command=self.install_npcap)
         tools_menu.add_command(label="卸载 Npcap", command=self.uninstall_npcap)
 
-        # 帮助菜单
-        help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="帮助", menu=help_menu)
-        help_menu.add_command(
-            label="帮助中心",
-            command=self.open_helper_center
-        )
-        help_menu.add_command(label="检查软件更新", command=self.check_updates_manually)
-        help_menu.add_command(
-            label="GitHub 仓库",
-            command=lambda: webbrowser.open(GITHUB_CONFIG["RELEASE_URL"]),
-        )
-        help_menu.add_separator()
-        help_menu.add_command(label=f"关于 ({VERSION})", command=self.show_about)
-
-        # 贡献榜菜单
-        menubar.add_command(label="贡献榜", command=self.show_contribute)
 
         # 主布局使用网格
         self.main_frame.columnconfigure(1, weight=1)
@@ -125,16 +104,16 @@ class StreamCaptureGUI:
         # 添加OBS管理面板
         self.obs_panel = OBSPanel(self, self.main_frame, self.logger)
 
-        # 添加广告位面板
-        self.ad_panel = AdPanel(parent=self.main_frame)
+        # 添加推流面板
+        self.stream_panel = StreamPanel(self, self.main_frame, self.logger)
 
-        # 在窗口加载完成后异步获取广告内容
-        self.root.after(1000, self.ad_panel.async_fetch_ad_content)
+        # 绑定窗口关闭事件
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def create_status_bar(self):
         """创建底栏"""
         status_frame = ttk.Frame(self.main_frame)
-        status_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
+        status_frame.grid(row=2, column=0, columnspan=4, sticky="we", pady=5)
 
         # 左侧版本信息
         ttk.Label(status_frame, text=f"版本: {VERSION}").pack(side=tk.LEFT, padx=5)
@@ -159,20 +138,6 @@ class StreamCaptureGUI:
         )
         check_update_cb.pack(side=tk.LEFT, padx=5)
 
-        # 打赏按钮
-        ttk.Button(
-            buttons_frame, text="请作者喝杯咖啡", command=self.show_donation, width=14
-        ).pack(side=tk.LEFT, padx=5)
-
-        # 免责声明按钮
-        ttk.Button(
-            buttons_frame, text="免责声明", command=self.show_disclaimer, width=10
-        ).pack(side=tk.LEFT, padx=5)
-
-        # 使用说明按钮
-        ttk.Button(
-            buttons_frame, text="使用说明", command=self.show_help, width=10
-        ).pack(side=tk.LEFT, padx=5)
 
     def show_donation(self):
         """显示打赏对话框"""
@@ -237,10 +202,6 @@ class StreamCaptureGUI:
         """显示免责声明弹窗"""
         create_disclaimer_dialog(self.root)
 
-    def show_about(self):
-        """显示关于对话框"""
-        create_about_dialog(self.root, VERSION)
-
     def clear_logs(self):
         """清除所有日志"""
         self.logger.clear_console()
@@ -251,15 +212,6 @@ class StreamCaptureGUI:
         self.logger.clear_packet_console()
         self.logger.info("数据包日志已清除")  # 在主控制台显示清除提示
 
-    def log_packet(self, message):
-        """记录数据包信息到数据包控制台"""
-        self.packet_console.insert(tk.END, f"{message}\n")
-        self.packet_console.see(tk.END)
-
-        # 如果发现关键数据包，自动切换到控制台标签
-        if ">>> 发现" in message:
-            self.log_notebook.select(1)  # 切换到数据包监控标签
-
     def center_window(self):
         """使窗口在屏幕中心显示"""
         # 获取屏幕宽度和高度
@@ -267,7 +219,7 @@ class StreamCaptureGUI:
         screen_height = self.root.winfo_screenheight()
 
         # 获取窗口宽度和高度
-        window_width = 800
+        window_width = 1000
         window_height = 600
 
         # 计算窗口居中的x和y坐标
@@ -303,23 +255,15 @@ class StreamCaptureGUI:
         thread.daemon = True
         thread.start()
 
-    def show_contribute(self):
-        """显示贡献榜对话框"""
-        ContributeDialog(self.root)
-
-    def get_helper_center_url(self):
-        """获取帮助中心URL"""
-        try:
-            response = requests.get("https://10.192.168101.xyz/helper.json")
-            data = response.json()
-            return data.get("helperCenter")
-        except Exception as e:
-            self.logger.error(f"获取帮助中心地址失败: {str(e)}")
-            messagebox.showerror("错误", "获取帮助中心地址失败")
-            return None
-
-    def open_helper_center(self):
-        """打开帮助中心"""
-        url = self.get_helper_center_url()
-        if url:
-            webbrowser.open(url)
+    def on_closing(self):
+        """窗口关闭时的清理工作"""
+        # 停止推流
+        if hasattr(self, 'stream_panel'):
+            self.stream_panel.on_close()
+        
+        # 停止捕获
+        if hasattr(self, 'control_panel') and self.control_panel.is_capturing:
+            self.control_panel.toggle_capture()
+        
+        # 关闭窗口
+        self.root.destroy()
