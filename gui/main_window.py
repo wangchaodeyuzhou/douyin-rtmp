@@ -19,6 +19,8 @@ from gui.control import ControlPanel
 from gui.stream_panel import StreamPanel
 from utils.resource import resource_path
 from utils.config import get_config, set_config
+from gui.auth import AuthStatusWidget
+from utils.auth import AuthManager
 
 
 class StreamCaptureGUI:
@@ -39,6 +41,7 @@ class StreamCaptureGUI:
 
         # 初始化基础组件
         self.logger = Logger()
+        self.auth_manager = AuthManager()
 
         # 创建主框架
         self.main_frame = ttk.Frame(self.root, padding="10")
@@ -87,6 +90,9 @@ class StreamCaptureGUI:
         menubar.add_cascade(label="工具", menu=tools_menu)
         tools_menu.add_command(label="安装 Npcap", command=self.install_npcap)
         tools_menu.add_command(label="卸载 Npcap", command=self.uninstall_npcap)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="密钥管理", command=self.show_auth_management)
+        tools_menu.add_command(label="重新验证", command=self.reauthenticate)
 
 
         # 主布局使用网格
@@ -117,6 +123,13 @@ class StreamCaptureGUI:
 
         # 左侧版本信息
         ttk.Label(status_frame, text=f"版本: {VERSION}").pack(side=tk.LEFT, padx=5)
+        
+        # 中间区域 - 认证状态
+        auth_frame = ttk.Frame(status_frame)
+        auth_frame.pack(side=tk.LEFT, padx=20)
+        
+        self.auth_status_widget = AuthStatusWidget(auth_frame, self.auth_manager)
+        self.auth_status_widget.pack()
 
         # 右侧按钮组
         buttons_frame = ttk.Frame(status_frame)
@@ -232,6 +245,50 @@ class StreamCaptureGUI:
     def on_check_update_changed(self):
         """处理自动检查更新复选框状态变化"""
         set_config("check_update", self.check_update_var.get())
+    
+    def show_auth_management(self):
+        """显示认证管理对话框"""
+        from gui.auth import show_auth_dialog
+        
+        # 检查当前认证状态
+        is_authenticated, status_msg, auth_info = self.auth_manager.check_auth_status()
+        
+        if is_authenticated:
+            # 已认证，显示详细信息
+            details = self.auth_manager.get_auth_details()
+            if details:
+                activate_date = details.get('activate_date', '未知')
+                expire_date = details.get('expire_date', '未知')
+                remaining_days = details.get('remaining_days', 0)
+                
+                info_msg = f"""当前认证状态：已授权
+
+激活时间：{activate_date}
+到期时间：{expire_date}
+剩余天数：{remaining_days} 天"""
+                
+                messagebox.showinfo("认证状态", info_msg)
+            else:
+                messagebox.showinfo("认证状态", "已认证，但无法获取详细信息")
+        else:
+            # 未认证，显示认证对话框
+            messagebox.showwarning("认证状态", f"未认证：{status_msg}")
+            self.reauthenticate()
+    
+    def reauthenticate(self):
+        """重新认证"""
+        from gui.auth import show_auth_dialog
+        
+        result = messagebox.askyesno("重新验证", "是否要重新进行密钥验证？")
+        if result:
+            auth_result, key = show_auth_dialog(self.root, "重新验证")
+            if auth_result:
+                messagebox.showinfo("成功", "重新验证成功！")
+                # 更新认证状态显示
+                if hasattr(self, 'auth_status_widget'):
+                    self.auth_status_widget.update_status()
+            else:
+                messagebox.showinfo("取消", "重新验证已取消")
 
     def check_updates_manually(self):
         """手动检查更新"""

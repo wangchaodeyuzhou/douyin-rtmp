@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/D:\\kingsoft\\虚拟人项目\\抖音推流码\\douyin-rtmp\\.venv/**)",
+      "Read(/D:\\kingsoft\\虚拟人项目\\抖音推流码\\douyin-rtmp\\gui/**)",
+      "Read(/D:\\kingsoft\\虚拟人项目\\抖音推流码\\douyin-rtmp\\utils/**)",
+      "Read(/D:\\kingsoft\\虚拟人项目\\抖音推流码\\douyin-rtmp\\.venv/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

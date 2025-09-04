@@ -98,3 +98,19 @@ def get_config(key: str) -> any:
             return None
     
     return None
+
+def clear_all_config() -> bool:
+    """
+    清除所有配置（用于测试）
+    
+    Returns:
+        bool: 清除是否成功
+    """
+    config_file = os.path.expanduser("~/.douyin-rtmp/config.json")
+    
+    try:
+        if os.path.exists(config_file):
+            os.remove(config_file)
+        return True
+    except Exception:
+        return False

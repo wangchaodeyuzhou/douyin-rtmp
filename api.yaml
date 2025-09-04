@@ -1,0 +1,32 @@
+# API 配置文件
+# 有效密钥列表配置
+
+# 认证配置
+auth:
+  # 有效的密钥列表
+  valid_keys:
+    - 'api_446af5dca169470c0fd76a72b5c1d048e44d19d1c62d7b443396eca4d79addf1'
+    - 'api_6bc83847009cc9d9f52a1e11bffd9ee5f7c9327f82c3ef6525ccec35bb4a2a8f'
+    - 'api_4e03bad421638702b06e9e884347ca28401003d6f3f89a07f76916fbe177bb5c'
+    - 'api_ff536c0a72e4993c42fb0ed7afc9cdff8dbf18fc77e6bd8e271aba48ed40a290'
+    - 'api_065e660ded324941118c0e2da4019356baee7ae1fa83238b0de18934ef97c57a'
+    - 'api_9def6360f2ceba85764eda1f2c5c6ecfad69a91e7fed1c2855434859a26c1505'
+    - 'api_b3ada16da01a8502a812f0d3b9a0c2cd3b8d3b857e21acf0aa6f7f51c1c63508'
+    - 'api_83abbe4341e1b45f3af677b21dbbdafd9e724408ffba5ff3576149be89179e8a'
+    - 'api_f7c07ab5a65c10940e0996f2258db7e716d2a6108fdb5aad2a42ef1ba6f6592d'
+    - 'api_662fc143aea0448ac5d70bede4c78c2087c86d017db172ad316e59f535b4b731'
+
+  
+  # 密钥有效期配置（天数）
+  default_validity_days: 7
+  
+  # 其他认证相关配置
+  settings:
+    min_key_length: 8
+    require_alphanumeric: true
+    case_sensitive: true
+
+# 其他API配置可以在这里添加
+api:
+  version: "1.0"
+  name: "Douyin RTMP Auth System"
