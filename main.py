@@ -2,11 +2,12 @@ import tkinter as tk
 from tkinter import messagebox
 from gui.main_window import StreamCaptureGUI
 from gui.auth import show_auth_dialog
-from utils.system import is_admin
+from utils.system import is_admin, run_as_admin
 from utils.auth import AuthManager
 
 def main():
     # 检查是否以管理员权限运行
+    run_as_admin()
     print("检查管理员权限...")
     if not is_admin():
         # 创建临时窗口用于显示错误信息

@@ -8,6 +8,13 @@ def is_admin():
         return os.getuid() == 0
     except AttributeError:
         return ctypes.windll.shell32.IsUserAnAdmin() != 0
+def run_as_admin():
+    """如果没有管理员权限，重新以管理员权限运行当前脚本"""
+    if os.name == "nt" and not is_admin():
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, " ".join(sys.argv), None, 1
+        )
+        sys.exit()
 
 def get_resource_path(relative_path):
     """获取资源文件的绝对路径，兼容开发、Nuitka打包和PyInstaller打包后的环境"""
