@@ -189,6 +189,7 @@ if defined use_nuitka (
     --enable-plugin=tk-inter ^
     --include-data-files=assets/=assets/=**/*.* ^
     --include-data-files=resources/=resources/=**/*.* ^
+    --include-data-files=api.yaml=api.yaml ^
     --output-dir=nuitka_out ^
     --output-filename=douyin-rtmp-nuitka.exe ^
     --company-name="DouyinRTMP" ^
@@ -259,6 +260,7 @@ if defined use_nuitka (
     --icon=assets/logo.ico ^
     --add-data="resources;resources" ^
     --add-data="assets;assets" ^
+    --add-data="api.yaml;." ^
     --name=douyin-rtmp ^
     --version-file=version_info.txt ^
     --distpath=dist ^

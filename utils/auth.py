@@ -96,9 +96,9 @@ class AuthManager:
         """从 api.yaml 文件获取有效密钥列表"""
         api_yaml_path = ""
         try:
-            # 获取当前脚本所在目录的上级目录（项目根目录）
-            current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            api_yaml_path = os.path.join(current_dir, 'api.yaml')
+            # 使用 resource_path 函数获取正确的资源路径，支持打包环境
+            from utils.resource import resource_path
+            api_yaml_path = resource_path('api.yaml')
             
             # 检查文件是否存在
             if not os.path.exists(api_yaml_path):
