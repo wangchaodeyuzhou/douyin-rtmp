@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, scrolledtext
 import sys
 from scapy.arch.windows import get_windows_if_list
 from core.npcap import NpcapManager
+from core.ffmpeg import FFmpegManager
 from utils.logger import Logger
 from utils.network import NetworkInterface
 from gui.widgets import (
@@ -42,6 +43,10 @@ class StreamCaptureGUI:
         # 初始化基础组件
         self.logger = Logger()
         self.auth_manager = AuthManager()
+        
+        # 状态更新相关标志
+        self._components_initialized = False
+        self._status_update_scheduled = False
 
         # 创建主框架
         self.main_frame = ttk.Frame(self.root, padding="10")
@@ -58,11 +63,25 @@ class StreamCaptureGUI:
         # 初始化其他组件
         self.network = NetworkInterface(self.logger)
         self.npcap = NpcapManager(self.logger)
+        self.ffmpeg = FFmpegManager(self.logger)
+        
+        # 标记组件已初始化
+        self._components_initialized = True
+        
+        # 组件初始化完成后立即更新状态
+        self.update_component_status()
 
         # 检查Npcap
         if not self.check_npcap():
             self.check_and_install_npcap()
             sys.exit(1)
+            
+        # 检查FFmpeg
+        if not self.check_ffmpeg():
+            # 静默检查和安装模式，不显示弹窗
+            self.ffmpeg.check_and_install(silent=True)
+            # 安装后再次更新状态
+            self.update_component_status()
 
         # 检查更新
         self.root.after(1000, self.async_check_updates)
@@ -90,6 +109,9 @@ class StreamCaptureGUI:
         menubar.add_cascade(label="工具", menu=tools_menu)
         tools_menu.add_command(label="安装 Npcap", command=self.install_npcap)
         tools_menu.add_command(label="卸载 Npcap", command=self.uninstall_npcap)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="安装 FFmpeg", command=self.install_ffmpeg)
+        tools_menu.add_command(label="卸载 FFmpeg", command=self.uninstall_ffmpeg)
         tools_menu.add_separator()
         tools_menu.add_command(label="密钥管理", command=self.show_auth_management)
         tools_menu.add_command(label="重新验证", command=self.reauthenticate)
@@ -124,6 +146,22 @@ class StreamCaptureGUI:
         # 左侧版本信息
         ttk.Label(status_frame, text=f"版本: {VERSION}").pack(side=tk.LEFT, padx=5)
         
+        # 系统组件状态
+        components_frame = ttk.Frame(status_frame)
+        components_frame.pack(side=tk.LEFT, padx=20)
+        
+        # Npcap 状态
+        self.npcap_status_var = tk.StringVar(value="检查中...")
+        ttk.Label(components_frame, text="Npcap:").pack(side=tk.LEFT, padx=2)
+        self.npcap_status_label = ttk.Label(components_frame, textvariable=self.npcap_status_var, width=8)
+        self.npcap_status_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # FFmpeg 状态
+        self.ffmpeg_status_var = tk.StringVar(value="检查中...")
+        ttk.Label(components_frame, text="FFmpeg:").pack(side=tk.LEFT, padx=2)
+        self.ffmpeg_status_label = ttk.Label(components_frame, textvariable=self.ffmpeg_status_var, width=8)
+        self.ffmpeg_status_label.pack(side=tk.LEFT, padx=(0, 10))
+        
         # 中间区域 - 认证状态
         auth_frame = ttk.Frame(status_frame)
         auth_frame.pack(side=tk.LEFT, padx=20)
@@ -150,8 +188,63 @@ class StreamCaptureGUI:
             command=self.on_check_update_changed,
         )
         check_update_cb.pack(side=tk.LEFT, padx=5)
+        
+        # 初始化状态显示
+        self.root.after(100, self.update_component_status)
 
 
+    def update_component_status(self):
+        """更新系统组件状态显示"""
+        # 检查组件是否已初始化，避免竞争条件
+        if not self._components_initialized:
+            # 如果组件还没有初始化，且没有已调度的更新，则稍后重试
+            if not self._status_update_scheduled:
+                self._status_update_scheduled = True
+                self.root.after(200, self._retry_update_component_status)
+            return
+            
+        # 更新 Npcap 状态
+        try:
+            if self.check_npcap():
+                self.npcap_status_var.set("已安装")
+                self.npcap_status_label.config(foreground="green")
+            else:
+                self.npcap_status_var.set("未安装")
+                self.npcap_status_label.config(foreground="red")
+        except Exception as e:
+            self.logger.error(f"检查 Npcap 状态时出错: {str(e)}")
+            self.npcap_status_var.set("检查失败")
+            self.npcap_status_label.config(foreground="red")
+        
+        # 更新 FFmpeg 状态
+        try:
+            if self.check_ffmpeg():
+                self.ffmpeg_status_var.set("已安装")
+                self.ffmpeg_status_label.config(foreground="green")
+            else:
+                self.ffmpeg_status_var.set("未安装")
+                self.ffmpeg_status_label.config(foreground="red")
+        except Exception as e:
+            self.logger.error(f"检查 FFmpeg 状态时出错: {str(e)}")
+            self.ffmpeg_status_var.set("检查失败")
+            self.ffmpeg_status_label.config(foreground="red")
+            
+        # 通知推流面板更新 FFmpeg 状态
+        self.update_stream_panel_ffmpeg_status()
+        
+    def _retry_update_component_status(self):
+        """重试更新组件状态"""
+        self._status_update_scheduled = False  # 重置标志
+        self.update_component_status()  # 再次尝试更新
+        
+    def update_stream_panel_ffmpeg_status(self):
+        """通知推流面板更新 FFmpeg 状态"""
+        if hasattr(self, 'stream_panel') and self.stream_panel:
+            try:
+                self.stream_panel.update_ffmpeg_status()
+            except Exception as e:
+                self.logger.error(f"更新推流面板 FFmpeg 状态时出错: {str(e)}")
+    
     def show_donation(self):
         """显示打赏对话框"""
         from gui.widgets import create_donation_dialog
@@ -168,15 +261,46 @@ class StreamCaptureGUI:
 
     def check_npcap(self):
         """检查Npcap是否已安装"""
+        if not hasattr(self, 'npcap') or self.npcap is None:
+            return False
         return self.npcap.check()
 
     def check_and_install_npcap(self):
         """检查并安装Npcap"""
+        if not hasattr(self, 'npcap') or self.npcap is None:
+            return False
         return self.npcap.check_and_install()
 
     def uninstall_npcap(self):
         """卸载Npcap"""
+        if not hasattr(self, 'npcap') or self.npcap is None:
+            messagebox.showerror("错误", "Npcap 组件未初始化")
+            return
         self.npcap.uninstall_npcap()
+        
+    def check_ffmpeg(self):
+        """检查FFmpeg是否已安装"""
+        if not hasattr(self, 'ffmpeg') or self.ffmpeg is None:
+            return False
+        return self.ffmpeg.check()
+
+    def check_and_install_ffmpeg(self):
+        """检查并安装FFmpeg"""
+        if not hasattr(self, 'ffmpeg') or self.ffmpeg is None:
+            return False
+        return self.ffmpeg.check_and_install()
+
+    def uninstall_ffmpeg(self):
+        """卸载FFmpeg"""
+        if not hasattr(self, 'ffmpeg') or self.ffmpeg is None:
+            messagebox.showerror("错误", "FFmpeg 组件未初始化")
+            return
+        
+        # 调用 FFmpeg 管理器的卸载方法
+        self.ffmpeg.uninstall_ffmpeg()
+        
+        # 卸载后更新状态（无论成功失败）
+        self.update_component_status()
 
     def async_check_updates(self):
         """异步检查更新"""
@@ -196,6 +320,11 @@ class StreamCaptureGUI:
     def install_npcap(self):
         """手动安装 Npcap"""
         try:
+            # 检查组件是否初始化
+            if not hasattr(self, 'npcap') or self.npcap is None:
+                messagebox.showerror("错误", "Npcap 组件未初始化，请稍后再试")
+                return
+                
             # 使用 NpcapManager 的方法进行安装
             if not self.npcap.check():
                 self.npcap.install_npcap()
@@ -204,6 +333,32 @@ class StreamCaptureGUI:
 
         except Exception as e:
             error_msg = f"启动 Npcap 安装程序失败: {str(e)}"
+            self.logger.error(error_msg)
+            messagebox.showerror("错误", error_msg)
+            
+    def install_ffmpeg(self):
+        """手动安装 FFmpeg"""
+        try:
+            # 检查组件是否初始化
+            if not hasattr(self, 'ffmpeg') or self.ffmpeg is None:
+                messagebox.showerror("错误", "FFmpeg 组件未初始化，请稍后再试")
+                return
+                
+            # 使用 FFmpegManager 的方法进行安装
+            if not self.ffmpeg.check():
+                if self.ffmpeg.install_ffmpeg():
+                    # 安装成功，更新状态
+                    self.update_component_status()
+                    messagebox.showinfo("成功", "FFmpeg 安装成功！")
+                else:
+                    # 安装失败，但仍需更新状态
+                    self.update_component_status()
+                    messagebox.showerror("失败", "FFmpeg 安装失败，请检查网络连接或手动安装")
+            else:
+                messagebox.showinfo("提示", "FFmpeg 已经安装")
+
+        except Exception as e:
+            error_msg = f"启动 FFmpeg 安装程序失败: {str(e)}"
             self.logger.error(error_msg)
             messagebox.showerror("错误", error_msg)
 

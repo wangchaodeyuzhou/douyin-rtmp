@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
 import os
 from utils.ffmpeg_utils import FFmpegStreamer
@@ -19,10 +20,19 @@ class StreamPanel:
         self.stream_status = tk.StringVar(value="未推流")
         self.ffmpeg_status = tk.StringVar(value="检查中...")
         
+        # 状态监控相关
+        self._status_check_job = None  # 状态检查定时任务ID
+        
         self.create_widgets()
         
         # 检查 FFmpeg 状态
         self.check_ffmpeg_status()
+        
+        # 启动状态监控
+        self.start_status_monitoring()
+        
+        # 初始化按钮状态（确保与实际推流状态一致）
+        self.main_frame.after(100, self._initialize_button_states)
     
     def create_widgets(self):
         """创建推流面板界面"""
@@ -36,13 +46,13 @@ class StreamPanel:
         status_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="we")
         
         ttk.Label(status_frame, text="FFmpeg:", width=8).pack(side=tk.LEFT, padx=2)
-        ffmpeg_status_label = ttk.Label(
+        self.ffmpeg_status_label = ttk.Label(
             status_frame, 
             textvariable=self.ffmpeg_status, 
             width=12,
             foreground="green"
         )
-        ffmpeg_status_label.pack(side=tk.LEFT, padx=1)
+        self.ffmpeg_status_label.pack(side=tk.LEFT, padx=1)
         
         ttk.Label(status_frame, text="推流状态:", width=8).pack(side=tk.LEFT, padx=10)
         stream_status_label = ttk.Label(
@@ -83,7 +93,8 @@ class StreamPanel:
             control_frame1,
             text="开始推流",
             command=self.start_stream,
-            width=12
+            width=12,
+            state="disabled"  # 初始状态设为禁用，等待状态检查后再更新
         )
         self.start_btn.pack(side=tk.LEFT, padx=5)
         
@@ -92,7 +103,7 @@ class StreamPanel:
             text="停止推流",
             command=self.stop_stream,
             width=12,
-            state="disabled"
+            state="disabled"  # 初始状态设为禁用，等待状态检查后再更新
         )
         self.stop_btn.pack(side=tk.LEFT, padx=5)
         
@@ -181,10 +192,8 @@ class StreamPanel:
         )
         
         if success:
-            self.stream_status.set("推流中")
-            self.start_btn.config(state="disabled")
-            self.stop_btn.config(state="normal")
             self.log_to_stream_console(f"✓ {message}")
+            # 状态会通过监控机制自动更新
         else:
             messagebox.showerror("推流失败", message)
             self.log_to_stream_console(f"✗ {message}")
@@ -194,10 +203,8 @@ class StreamPanel:
         success, message = self.streamer.stop_stream()
         
         if success:
-            self.stream_status.set("未推流")
-            self.start_btn.config(state="normal")
-            self.stop_btn.config(state="disabled")
             self.log_to_stream_console(f"✓ {message}")
+            # 状态会通过监控机制自动更新
         else:
             self.log_to_stream_console(f"✗ {message}")
     
@@ -207,34 +214,28 @@ class StreamPanel:
         
         if available:
             self.ffmpeg_status.set("可用")
-            # 更新标签颜色为绿色
-            for widget in self.main_frame.winfo_children():
-                if isinstance(widget, ttk.LabelFrame) and widget.cget("text") == "推流管理":
-                    for child in widget.winfo_children():
-                        if isinstance(child, ttk.Frame):
-                            for subchild in child.winfo_children():
-                                if isinstance(subchild, ttk.Label) and subchild.cget("foreground") == "green":
-                                    subchild.config(foreground="green")
+            self.ffmpeg_status_label.config(foreground="green")
             self.log_to_stream_console(f"✓ FFmpeg 可用: {info}")
         else:
             self.ffmpeg_status.set("不可用")
-            # 更新标签颜色为红色
-            for widget in self.main_frame.winfo_children():
-                if isinstance(widget, ttk.LabelFrame) and widget.cget("text") == "推流管理":
-                    for child in widget.winfo_children():
-                        if isinstance(child, ttk.Frame):
-                            for subchild in child.winfo_children():
-                                if isinstance(subchild, ttk.Label) and "FFmpeg" in str(subchild.cget("textvariable")):
-                                    subchild.config(foreground="red")
+            self.ffmpeg_status_label.config(foreground="red")
             self.log_to_stream_console(f"✗ FFmpeg 不可用: {info}")
             
             if not available:
-                messagebox.showwarning(
-                    "FFmpeg 不可用",
-                    "未找到 FFmpeg，推流功能需要 FFmpeg 支持。\n\n"
-                    "请下载并安装 FFmpeg，然后将其添加到系统环境变量中。\n"
-                    "下载地址: https://ffmpeg.org/download.html"
-                )
+                # 尝试安装 FFmpeg（静默安装，不显示弹窗）
+                self.log_to_stream_console("正在尝试自动安装 FFmpeg...")
+                if hasattr(self.parent, 'ffmpeg') and self.parent.ffmpeg:
+                    # 静默安装，不显示弹窗
+                    if self.parent.ffmpeg.install_ffmpeg(silent=True):
+                        # 安装成功，重新检查
+                        self.check_ffmpeg_status()
+                        # 同步更新主窗口状态
+                        if hasattr(self.parent, 'update_component_status'):
+                            self.parent.update_component_status()
+                    else:
+                        self.log_to_stream_console("自动安装失败，请手动安装")
+                else:
+                    self.log_to_stream_console("请通过主菜单安装 FFmpeg")
     
     def on_stream_log(self, message):
         """处理推流日志回调"""
@@ -267,7 +268,82 @@ class StreamPanel:
         """获取推流状态"""
         return self.streamer.get_stream_status()
     
+    def update_ffmpeg_status(self):
+        """公开的 FFmpeg 状态更新方法，供外部调用"""
+        self.check_ffmpeg_status()
+    
+    def start_status_monitoring(self):
+        """启动状态监控"""
+        self._monitor_stream_status()
+    
+    def _initialize_button_states(self):
+        """初始化按钮状态，确保与实际推流状态一致"""
+        try:
+            # 获取当前推流状态
+            status = self.streamer.get_stream_status()
+            is_streaming = status.get('is_streaming', False)
+            
+            # 根据实际状态初始化按钮
+            self._update_button_states(is_streaming)
+            
+            self.log_to_stream_console(f"初始化按钮状态: {'推流中' if is_streaming else '未推流'}")
+            
+        except Exception as e:
+            self.logger.error(f"初始化按钮状态时出错: {str(e)}")
+            # 错误情况下默认设置为未推流状态
+            self._update_button_states(False)
+    
+    def _monitor_stream_status(self):
+        """监控推流状态并更新UI"""
+        try:
+            # 获取当前推流状态
+            status = self.streamer.get_stream_status()
+            is_streaming = status.get('is_streaming', False)
+            
+            # 更新UI状态
+            self._update_button_states(is_streaming)
+            
+            # 继续监控（每1秒检查一次）
+            self._status_check_job = self.main_frame.after(1000, self._monitor_stream_status)
+            
+        except tk.TclError:
+            # 窗口已关闭，停止监控
+            pass
+        except Exception as e:
+            # 发生错误，记录日志但继续监控
+            self.logger.error(f"监控推流状态时出错: {str(e)}")
+            self._status_check_job = self.main_frame.after(1000, self._monitor_stream_status)
+    
+    def _update_button_states(self, is_streaming):
+        """更新按钮状态"""
+        try:
+            if is_streaming:
+                # 正在推流
+                self.stream_status.set("推流中")
+                self.start_btn.config(state="disabled")
+                self.stop_btn.config(state="normal")
+            else:
+                # 未推流或已停止
+                self.stream_status.set("未推流")
+                self.start_btn.config(state="normal")
+                self.stop_btn.config(state="disabled")
+                
+        except tk.TclError:
+            # 窗口已关闭，忽略错误
+            pass
+        except Exception as e:
+            # 其他错误，记录日志
+            self.logger.error(f"更新按钮状态时出错: {str(e)}")
+    
     def on_close(self):
         """关闭时的清理工作"""
+        # 停止状态监控
+        if self._status_check_job:
+            try:
+                self.main_frame.after_cancel(self._status_check_job)
+            except tk.TclError:
+                pass
+        
+        # 停止推流
         if self.streamer.is_streaming:
             self.streamer.stop_stream()
